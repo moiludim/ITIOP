@@ -6,70 +6,199 @@
 
 using namespace std;
 
-//funcziya dlya perevoda zeloy chasty chisla
-string integer_part(int num, int base) {
+// Функция для перевода положительного числа в двоичную систему
+string positive_to_binary(int num) {
     if (num == 0) return "0";
-
+    
     string result = "";
-    string alfav = "0123456789ABCDEF"; //alfavit sistem schislenya do 16 vkluchitel`no
-
     while (num > 0) {
-        result += alfav[num % base]; //berem ostatok ot delenya 
-        num /= base; //umen`shaem chislo vo stoka raz kakaya sistema schisleniya u nas
+        result += (num % 2 == 0) ? '0' : '1';
+        num /= 2;
     }
-
-    reverse(result.begin(), result.end()); //nado perevernut` chislo dlya zapisi rezultata
+    reverse(result.begin(), result.end());
     return result;
 }
 
-//funcziya dlya perevoda drobnoy chasty chisla
+// Функция для перевода целой части числа
+string integer_part(int num, int base) {
+    if (num == 0) return "0";
+
+    // Для двоичной системы с отрицательными числами - дополнительный код
+    if (base == 2 && num < 0) {
+        // Берем модуль числа и переводим в двоичную
+        int positive_num = abs(num);
+        string binary = positive_to_binary(positive_num);
+        
+        // Дополняем нулями до нужной длины (минимум 4 бита)
+        int min_bits = max((int)binary.length() + 1, 4);
+        while (binary.length() < min_bits) {
+            binary = "0" + binary;
+        }
+        
+        // Инвертируем биты (заменяем 0 на 1 и 1 на 0)
+        string inverted = "";
+        for (char c : binary) {
+            inverted += (c == '0') ? '1' : '0';
+        }
+        
+        // Добавляем 1
+        string result = inverted;
+        bool carry = true;
+        for (int i = result.length() - 1; i >= 0 && carry; i--) {
+            if (result[i] == '0') {
+                result[i] = '1';
+                carry = false;
+            } else {
+                result[i] = '0';
+            }
+        }
+        
+        // Если был перенос, добавляем 1 в начало
+        if (carry) {
+            result = "1" + result;
+        }
+        
+        return result;
+    }
+
+    // Для остальных систем и положительных двоичных
+    bool negative = false;
+    if (num < 0) {
+        negative = true;
+        num = abs(num);
+    }
+
+    string result = "";
+    string alfav = "0123456789ABCDEF";
+
+    while (num > 0) {
+        result += alfav[num % base];
+        num /= base;
+    }
+
+    reverse(result.begin(), result.end());
+    
+    if (negative && base != 2) {
+        result = "-" + result;
+    }
+    
+    return result;
+}
+
+// Функция для перевода дробной части числа
 string fractional_part(double fractional, int base) {
     if (fractional == 0) return "0";
 
+    fractional = abs(fractional);
+    
     string result = "";
     string alfav = "0123456789ABCDEF";
 
     for (int i = 0; i < 10 && fractional > 0; i++) {
-        fractional *= base; //umnojaem na osnovanie systemi
-        int digit = (int)fractional; //berem poluchivshyusya zelyu chast` chisla
-        result += alfav[digit]; //zapisyvaem ee v resultat nash
-        fractional -= digit; //otnimaem zeluy chast chisla, dal`she vichislyaem
+        fractional *= base;
+        int digit = (int)fractional;
+        result += alfav[digit];
+        fractional -= digit;
     }
 
     return result;
 }
 
-//perevod v 10 sistemy schisleniya 
+// Перевод в 10-ную систему счисления 
 double to_ten(string num, int base) {
-    size_t tochk = num.find('.'); //oprredelyaem posiziu tochki
-    if (tochk == string::npos) {
-        tochk = num.length(); //proverka esly tochki net, to govorim chto tochka v konze chisla
+    // Для двоичной системы проверяем, является ли число дополнительным кодом
+    if (base == 2 && num.find('.') == string::npos && num.find('-') == string::npos) {
+        // Если старший бит = 1, то это может быть дополнительный код
+        if (!num.empty() && num[0] == '1') {
+            // Проверяем, действительно ли это дополнительный код
+            bool is_twos_complement = true;
+            for (char c : num) {
+                if (c != '0' && c != '1') {
+                    is_twos_complement = false;
+                    break;
+                }
+            }
+            
+            if (is_twos_complement) {
+                // Преобразуем из дополнительного кода обратно
+                string inverted = "";
+                for (char c : num) {
+                    inverted += (c == '0') ? '1' : '0';
+                }
+                
+                // Вычитаем 1 (добавляем -1 в двоичной)
+                string temp = inverted;
+                bool borrow = true;
+                for (int i = temp.length() - 1; i >= 0 && borrow; i--) {
+                    if (temp[i] == '1') {
+                        temp[i] = '0';
+                        borrow = false;
+                    } else {
+                        temp[i] = '1';
+                    }
+                }
+                
+                // Переводим в десятичную и делаем отрицательным
+                int value = 0;
+                for (int i = 0; i < temp.length(); i++) {
+                    if (temp[i] == '1') {
+                        value += (1 << (temp.length() - 1 - i));
+                    }
+                }
+                
+                return -value;
+            }
+        }
     }
-    double result = 0.0; 
+
+    bool negative = false;
+    if (num[0] == '-') {
+        negative = true;
+        num = num.substr(1);
+    }
+    
+    size_t tochk = num.find('.');
+    if (tochk == string::npos) {
+        tochk = num.length();
+    }
+    
+    double result = 0.0;
     string alfav = "0123456789ABCDEF";
 
-    //zdes` schitaem zeluy chast` chisla 
+    // Целая часть
     for (int i = 0; i < tochk; i++) {
-        int digit = alfav.find(toupper(num[i])); //nahodim znachenie zifri 
-        int power = tochk - i - 1; //nahodim stepen` v kotoruy budem vvodi` osnovanie sistemi: 123(10) = 1*10**2 + 2*10**1 + 3*10**0
-        result += digit * pow(base, power); //proizvodim to chto vishe v primere pokazala
-    }
-
-    //zdes` schitaem drobnuy chast` chisla 
-    for (int i = tochk + 1; i < num.length(); i++) {
         int digit = alfav.find(toupper(num[i]));
-        int power = tochk - i; //kogda vicheslyaem drobnuy chast` mi ymnojaem na otrizatel`nuy stepen`: 0.101(2)= 1*2**-1 + 0*2**-2 + 1*2**-3
+        if (digit == string::npos || digit >= base) {
+            cout << "Error: Invalid digit '" << num[i] << "' for base " << base << endl;
+            return 0;
+        }
+        int power = tochk - i - 1;
         result += digit * pow(base, power);
     }
 
+    // Дробная часть
+    for (int i = tochk + 1; i < num.length(); i++) {
+        int digit = alfav.find(toupper(num[i]));
+        if (digit == string::npos || digit >= base) {
+            cout << "Error: Invalid digit '" << num[i] << "' for base " << base << endl;
+            return 0;
+        }
+        int power = tochk - i;
+        result += digit * pow(base, power);
+    }
+
+    if (negative) {
+        result = -result;
+    }
+    
     return result;
 }
 
-// +|*  (punkt 4)
+// Арифметические операции +|*
 void arifm_operation() {
-    string num1, num2; //2 chisla vvodim
+    string num1, num2;
     int base;
-    char operation; //vibor operazii
+    char operation;
 
     cout << "Enter the 1st number of r system: ";
     cin >> num1;
@@ -81,15 +210,13 @@ void arifm_operation() {
     cin >> operation;
 
     if (base < 2 || base > 16) {
-        cout << "radix musi be from 2 to 16" << endl;
+        cout << "radix must be from 2 to 16" << endl;
         return;
     }
 
-    //perevodim v 10 systemu scisleniya
     double num1_ten = to_ten(num1, base);
     double num2_ten = to_ten(num2, base);
 
-    
     double result_dec;
     switch (operation) {
     case '+':
@@ -103,28 +230,26 @@ void arifm_operation() {
         return;
     }
 
-   
     cout << "1st number in decimal system: " << num1_ten << endl;
     cout << "2nd number in decimal system: " << num2_ten << endl;
     cout << "Result in decimal system: " << result_dec << endl;
 }
 
 int main() {
-    int choise;
+    int choice;
     while (true) {
-        cout << "Enter thе case" << endl << endl;
+        cout << "Enter the case" << endl << endl;
         cout << "1. Convert a number from the decimal system to the r-th system" << endl;
         cout << "2. Convert a number from r-ary to decimal" << endl;
         cout << "3. Addition and multiplication of two numbers in the r-ary system" << endl;
         cout << "4. Completion of the program" << endl;
         cout << "Enter the program number without dot: ";
-        cin >> choise;
+        cin >> choice;
 
-
-        switch (choise) {
+        switch (choice) {
         case 1: {
-            int base;
             double number;
+            int base;
             cout << "Enter the real number: ";
             cin >> number;
 
@@ -132,15 +257,14 @@ int main() {
             cin >> base;
 
             if (base < 2 || base > 16) {
-                cout << "North, the base must be between 2 and 16 " << endl;
+                cout << "The base must be between 2 and 16" << endl;
                 break;
             }
 
-            //delim na zeluy i drobnuy chasti 
             int integerPart = (int)number;
             double fractionalPart = number - integerPart;
 
-            string integerResult = integer_part(integerPart, base); //perevodim 
+            string integerResult = integer_part(integerPart, base);
             string fractionalResult = fractional_part(fractionalPart, base);
 
             cout << "Result: " << integerResult;
@@ -168,7 +292,7 @@ int main() {
             break;
         }
         case 4: {
-            cout << "End of programm" << endl;
+            cout << "End of program" << endl;
             return 0;
         }
         default: {
